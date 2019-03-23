@@ -29,9 +29,9 @@ if (NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif (NOT CMAKE_BUILD_TYPE)
 
-add_compile_options(sslwrap PRIVATE -Wall -Wextra -pedantic)
-add_compile_options(sslwrap PRIVATE "$<$<CONFIG:DEBUG>:-g>")
-add_compile_options(sslwrap PRIVATE "$<$<CONFIG:RELEASE>:-O3 -Werror>")
+target_compile_options(sslwrap PRIVATE -Wall -Wextra -pedantic)
+target_compile_options(sslwrap PRIVATE "$<$<CONFIG:DEBUG>:-g>")
+target_compile_options(sslwrap PRIVATE "$<$<CONFIG:RELEASE>:-O3;-Werror>")
 
 #Find and link OpenSSL
 	find_package(OpenSSL REQUIRED)
