@@ -1,53 +1,77 @@
 cmake_minimum_required(VERSION 3.09)
-project(SSLWrap)
-
-set(LIB_NAME SSLWrap)
+project(libSSLWrap VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -pthread -lstdc++fs")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Werror")
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
-
-file(GLOB_RECURSE SOURCE_FILES "lib/*.cpp")
-file(GLOB_RECURSE INCLUDE_FILES "lib/*.hpp")
-
-add_library(${LIB_NAME} SHARED ${SOURCE_FILES})
-target_include_directories(${LIB_NAME} PRIVATE ${src})
-
-set_target_properties(${LIB_NAME} PROPERTIES PUBLIC_HEADER "${INCLUDE_FILES}")
-
-#Find and link OpenSSL
-	find_package(OpenSSL REQUIRED)
-	target_include_directories(${LIB_NAME} PRIVATE ${OPENSSL_INCLUDE_DIR})
-	target_link_libraries(${LIB_NAME} ${OPENSSL_LIBRARIES})
-
-target_link_libraries(${LIB_NAME} stdc++fs)
-
-set(SSLWRAP_DEPS ${OPENSSL_LIBRARIES};stdc++fs)
-
-if (NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-endif (NOT CMAKE_BUILD_TYPE)
-
 include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-
 set(SSLWRAP_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/sslwrap CACHE STRING
 		"Where to install the cmake files, relative to ${CMAKE_INSTALL_PREFIX}.")
 set(SSLWRAP_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR} CACHE STRING
 		"Where to install the library file, relative to ${CMAKE_INSTALL_PREFIX}")
 set(SSLWRAP_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/SSLWrap CACHE STRING
 		"Where to install the include files, relative to ${CMAKE_INSTALL_PREFIX}.")
+option(BUILD_SHARED_LIBS "Build shared libraries (.so) instead of static ones (.a)" ON)
 
-set(CONFIG_OUTPUT ${PROJECT_BINARY_DIR}/sslwrap-config.cmake)
-configure_package_config_file(${PROJECT_SOURCE_DIR}/install/sslwrap-config.cmake.in ${CONFIG_OUTPUT}
-		INSTALL_DESTINATION ${SSLWRAP_CMAKE_DIR})
+add_library(sslwrap src/ClientContext.cpp src/Context.cpp src/init.cpp src/IpAddress.cpp src/Listener.cpp
+		src/Packet.cpp src/ServerContext.cpp src/Socket.cpp src/SSLError.cpp)
 
-install(TARGETS ${LIB_NAME}
-		LIBRARY
-			DESTINATION ${CMAKE_INSTALL_PREFIX}/${SSLWRAP_INSTALL_DIR}
-		PUBLIC_HEADER
-			DESTINATION ${CMAKE_INSTALL_PREFIX}/${SSLWRAP_INCLUDE_DIR}
-		)
-install(FILES ${CONFIG_OUTPUT} DESTINATION ${CMAKE_INSTALL_PREFIX}/${SSLWRAP_CMAKE_DIR})
+add_library(SSLWrap::sslwrap ALIAS sslwrap)
+
+target_include_directories(sslwrap
+	PUBLIC
+		$<INSTALL_INTERFACE:include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+if (NOT CMAKE_BUILD_TYPE)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+endif (NOT CMAKE_BUILD_TYPE)
+
+add_compile_options(sslwrap PRIVATE -Wall -Wextra -pedantic)
+add_compile_options(sslwrap PRIVATE "$<$<CONFIG:DEBUG>:-g>")
+add_compile_options(sslwrap PRIVATE "$<$<CONFIG:RELEASE>:-O3 -Werror>")
+
+#Find and link OpenSSL
+	find_package(OpenSSL REQUIRED)
+	target_link_libraries(sslwrap PRIVATE OpenSSL::SSL)
+
+install(TARGETS sslwrap
+	EXPORT sslwarp-targets
+	LIBRARY DESTINATION ${SSLWRAP_INSTALL_DIR}
+	ARCHIVE DESTINATION ${SSLWRAP_INSTALL_DIR}
+)
+
+set_target_properties(sslwrap PROPERTIES EXPORT_NAME SSLWrap)
+
+install(DIRECTORY include/ DESTINATION ${SSLWRAP_INCLUDE_DIR})
+install(EXPORT sslwarp-targets
+	FILE
+		SSLWrapTargets.cmake
+	NAMESPACE
+		SSLWrap::
+	DESTINATION
+		${SSLWRAP_CMAKE_DIR}
+)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+	${CMAKE_CURRENT_BINARY_DIR}/SSLWrapConfigVersion.cmake
+	VERSION ${PROJECT_VERSION}
+	COMPATIBILITY AnyNewerVersion
+)
+
+set(CONFIG_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/SSLWrapConfig.cmake)
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/install/SSLWrapConfig.cmake.in ${CONFIG_OUTPUT}
+	INSTALL_DESTINATION ${SSLWRAP_CMAKE_DIR})
+
+install(FILES
+	${CMAKE_CURRENT_BINARY_DIR}/SSLWrapConfig.cmake
+	${CMAKE_CURRENT_BINARY_DIR}/SSLWrapConfigVersion.cmake
+	DESTINATION ${SSLWRAP_CMAKE_DIR}
+)
+
+export(EXPORT sslwarp-targets FILE ${CMAKE_CURRENT_BINARY_DIR}/SSLWrapTargets.cmake NAMESPACE SSLWrap::)
+
+export(PACKAGE SSLWrap)
